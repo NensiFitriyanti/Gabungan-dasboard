@@ -3,16 +3,7 @@ pandas
 matplotlib
 google-api-python-client
 wordcloud
-Sastrawi
-vaderSentiment
-streamlit-autorefresh
-reportlab
-xlsxwriter
-streamlit
-pandas
-matplotlib
-google-api-python-client
-wordcloud
-sastrawi
+transformers
+torch # atau tensorflow jika Anda lebih memilih itu
 reportlab
 xlsxwriter

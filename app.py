@@ -2,7 +2,6 @@ import re
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from googleapiclient.discovery import build
 from datetime import datetime
 import os
@@ -14,6 +13,9 @@ from reportlab.pdfgen import canvas
 from wordcloud import WordCloud
 from collections import Counter
 
+# Import untuk IndoBERT
+from transformers import pipeline
+
 # Konfigurasi halaman Streamlit
 st.set_page_config(page_title="VoxMeter Dashboard", layout="wide", initial_sidebar_state="expanded") 
 
@@ -21,15 +23,21 @@ st.set_page_config(page_title="VoxMeter Dashboard", layout="wide", initial_sideb
 LOGO_FILE = "logo_voxmeter.png"
 ADMIN_PIC = "adminpicture.png"
 
-# --- Inisialisasi status mode tema ---
-# Simpan status tema di session state
-if 'theme' not in st.session_state:
-    st.session_state.theme = 'dark' # Tema default adalah gelap
+# --- Inisialisasi model IndoBERT ---
+@st.cache_resource
+def load_indobert_model():
+    return pipeline("sentiment-analysis", model="indobert-base-p1")
 
-# Fungsi CSS Kustom untuk kedua tema
+# Load model IndoBERT di awal aplikasi
+indobert_analyzer = load_indobert_model()
+
+
+# --- Inisialisasi status mode tema ---
+if 'theme' not in st.session_state:
+    st.session_state.theme = 'dark'
+
 def inject_custom_css(theme):
     if theme == 'dark':
-        # CSS untuk TEMA GELAP (Abu-abu & Emas)
         css = """
         <style>
         /* Umum: Tema Gelap Profesional */
@@ -429,32 +437,25 @@ def fetch_comments_for_video(youtube, video_id, max_results=200):
         st.warning(f"Gagal mengambil komentar untuk video {video_id}: {e}")
     return comments
 
-# Fungsi untuk menganalisis sentimen menggunakan VADER
-def analyze_sentiments(df: pd.DataFrame):
-    analyzer = SentimentIntensityAnalyzer()
-    sentiments = []
-    for text in df['comment']:
-        if pd.isna(text):
-            text = "" # Tangani nilai NaN
-        vs = analyzer.polarity_scores(str(text))
-        comp = vs['compound']
-        if comp >= 0.05:
-            label = 'Positif'
-        elif comp <= -0.05:
-            label = 'Negatif'
-        else:
-            label = 'Netral'
-        sentiments.append({
-            'compound': comp,
-            'label': label,
-            'neg': vs['neg'],
-            'neu': vs['neu'],
-            'pos': vs['pos']
-        })
-    s_df = pd.DataFrame(sentiments)
-    return pd.concat([df.reset_index(drop=True), s_df], axis=1)
+# Fungsi untuk menganalisis sentimen menggunakan IndoBERT
+@st.cache_data # Menggunakan cache data untuk IndoBERT agar tidak memproses ulang jika input sama
+def analyze_sentiments_indobert(comments_series: pd.Series):
+    results = indobert_analyzer(comments_series.astype(str).tolist())
+    
+    sentiment_labels = []
+    for res in results:
+        label = res['label']
+        if label == 'POSITIVE':
+            sentiment_labels.append('Positif')
+        elif label == 'NEGATIVE':
+            sentiment_labels.append('Negatif')
+        else: # NEUTRAL
+            sentiment_labels.append('Netral')
+            
+    s_df = pd.DataFrame({'label': sentiment_labels})
+    return s_df
 
-# Fungsi untuk mengkonversi DataFrame ke format Excel (bytes)
+
 def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
     buffer = io.BytesIO()
     df_clean = df.astype(str)
@@ -464,11 +465,9 @@ def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
     buffer.seek(0)
     return buffer.getvalue()
 
-# Fungsi untuk mengkonversi DataFrame ke format CSV (bytes)
 def df_to_csv_bytes(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False).encode('utf-8')
 
-# Fungsi untuk mengkonversi DataFrame ke format PDF (bytes)
 def df_to_pdf_bytes(df: pd.DataFrame) -> bytes:
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=letter)
@@ -494,7 +493,6 @@ def df_to_pdf_bytes(df: pd.DataFrame) -> bytes:
     buffer.seek(0)
     return buffer.read()
 
-# Daftar link video YouTube
 VIDEO_LINKS = [
     "https://youtu.be/Ugfjq0rDz8g?si=vWNO6nEAj9XB2LOB",
     "https://youtu.be/Lr1OHmBpwjw?si=9Mvu8o69V8Zt40yn",
@@ -532,15 +530,7 @@ st.sidebar.image(ADMIN_PIC, width=80)
 st.sidebar.markdown("**Administrator**")
 
 # Definisi menu utama
-# Ini adalah bagian yang menyebabkan menu hilang, karena menimpa definisi menu.
-# Kita perlu mengubah ini menjadi variabel 'menu_selection' yang berbeda
-# agar tidak menimpa variabel 'menu' yang digunakan untuk kontrol konten utama.
-# Atau, lebih baik, gunakan st.session_state untuk menyimpan pilihan menu.
-# Mari kita perbaiki agar menu utama tetap "Sentiment", "Prediksi", "Dashboard", "Kelola Data", "Insight & Rekomendasi", "Logout"
-# dan sub-menu "Sentiment" adalah "Dashboard", "Kelola Data", "Insight & Rekomendasi"
-# seperti struktur awal Anda.
-
-main_menu_options = ["Sentiment", "Prediksi", "Logout"] # Ini menu utama Anda
+main_menu_options = ["Sentiment", "Prediksi", "Logout"] # Mengembalikan opsi menu utama seperti semula
 menu = st.sidebar.radio("MENU", main_menu_options) 
 
 # Tombol ganti mode ditempatkan di bawah menu utama
@@ -649,8 +639,7 @@ if menu == "Sentiment":
                             if all_comments:
                                 df_new = pd.DataFrame(all_comments)
                                 df_new['published_at'] = pd.to_datetime(df_new['published_at'])
-                                df_new = analyze_sentiments(df_new)
-
+                                df_new = analyze_sentiments_indobert(df_new['comment']) # Memanggil fungsi IndoBERT
                                 st.session_state['df_comments'] = df_new
                                 st.success(f'Berhasil mengambil {len(df_new)} komentar.')
                                 st.rerun() 
@@ -781,12 +770,11 @@ if submenu == 'Insight & Rekomendasi':
             )
             if count > 0:
                 wc_text = " ".join(text_series.dropna().astype(str))
-                # Menyesuaikan warna latar belakang WordCloud berdasarkan tema
                 bg_color_wc = '#424242' if st.session_state.theme == 'dark' else 'white'
                 text_color_wc = 'white' if st.session_state.theme == 'dark' else 'black'
                 
                 wc = WordCloud(width=600, height=300, background_color=bg_color_wc, colormap="viridis").generate(wc_text)
-                fig, ax = plt.subplots(figsize=(6,3), facecolor=bg_color_wc) # Gunakan bg_color_wc untuk facecolor
+                fig, ax = plt.subplots(figsize=(6,3), facecolor=bg_color_wc)
                 ax.imshow(wc, interpolation='bilinear')
                 ax.axis("off")
                 st.pyplot(fig)
