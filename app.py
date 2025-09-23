@@ -89,18 +89,18 @@ def inject_custom_css():
             font-family: 'Roboto', sans-serif; /* General text font */
         }
 
-        /* Kotak Konten (seperti kartu) */
-        .st-emotion-cache-1r4qj8m { /* Ini adalah class yang mengontrol kolom - mungkin berubah di versi Streamlit mendatang */
-            background-color: #0f3460;
+        /* Kotak Konten (seperti kartu) - Diperbarui */
+        .st-emotion-cache-1r4qj8m {
+            background-color: #1A202C; /* Warna abu-abu gelap profesional */
             padding: 20px;
-            border-radius: 12px; /* Sudut lebih membulat */
+            border-radius: 12px;
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
             border: 1px solid #533483;
             transition: all 0.3s ease-in-out;
             margin-bottom: 20px;
         }
         .st-emotion-cache-1r4qj8m:hover {
-            transform: translateY(-5px); /* Efek 'terangkat' saat kursor di atasnya */
+            transform: translateY(-5px);
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.6);
         }
 
@@ -113,10 +113,10 @@ def inject_custom_css():
             padding: 8px 12px;
         }
         .stTextInput > div > div > input:focus, .stSelectbox > div > div > div > div > input:focus {
-            border-color: #e94560; /* Accent border on focus */
+            border-color: #e94560;
             box-shadow: 0 0 0 0.2rem rgba(233, 69, 96, 0.25);
         }
-        .stSelectbox div[role="listbox"] { /* Dropdown menu styling */
+        .stSelectbox div[role="listbox"] {
             background-color: #0f3460;
             border: 1px solid #533483;
             border-radius: 8px;
@@ -130,7 +130,7 @@ def inject_custom_css():
 
         /* Tombol di Konten Utama */
         .stButton > button {
-            background-color: #e94560; /* Warna tombol aksen */
+            background-color: #e94560;
             color: white;
             border-radius: 8px;
             border: none;
@@ -146,19 +146,19 @@ def inject_custom_css():
         /* DataFrame Styling */
         .stDataFrame {
             border-radius: 8px;
-            overflow: hidden; /* Memastikan sudut membulat berlaku untuk konten */
+            overflow: hidden;
             border: 1px solid #533483;
         }
         .dataframe {
-            background-color: #0f3460; /* Latar belakang lebih gelap untuk tabel */
+            background-color: #0f3460;
             color: #e0e0e0;
         }
-        .dataframe th { /* Header tabel */
+        .dataframe th {
             background-color: #533483;
             color: white;
             font-weight: bold;
         }
-        .dataframe tr:nth-child(even) { /* Warna striping zebra */
+        .dataframe tr:nth-child(even) {
             background-color: #0f3460;
         }
         .dataframe tr:nth-child(odd) {
@@ -175,9 +175,9 @@ def inject_custom_css():
         .stAlert.st-warning { background-color: #4d441e; color: #fff3cd; border-left: 5px solid #ffc107; }
         .stAlert.st-error { background-color: #4d1e2e; color: #f8d7da; border-left: 5px solid #dc3545; }
         
-        /* Matplotlib figure background for dark theme */
-        .stPlotlyChart { /* Ini akan menargetkan Chart dari Streamlit*/
-            background-color: #0f3460; /* Cocokkan latar belakang kartu */
+        /* Matplotlib figure background for dark theme - Diperbarui */
+        .stPlotlyChart {
+            background-color: #1A202C; /* Cocokkan latar belakang kartu */
             border-radius: 12px;
             padding: 10px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
@@ -336,18 +336,11 @@ if 'authenticated' not in st.session_state:
 if not st.session_state['authenticated']:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown(f"""
-            <div style="background-color: #0f3460; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);">
-                <img src="data:image/png;base64,{base64.b64encode(open(LOGO_FILE, "rb").read()).decode()}" width="160" style="margin-bottom: 20px;">
-                <h1 style="color: #e94560;">Log In</h1>
-            </div>
-            """, unsafe_allow_html=True)
         
         with st.form('login_form', clear_on_submit=False):
             username = st.text_input('Username')
             password = st.text_input('Password', type='password')
             submitted = st.form_submit_button('Log In')
-            
             if submitted:
                 if check_credentials(username, password):
                     st.session_state['authenticated'] = True
