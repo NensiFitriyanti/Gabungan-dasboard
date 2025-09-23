@@ -20,6 +20,120 @@ st.set_page_config(page_title="VoxMeter Dashboard", layout="wide")
 LOGO_FILE = "logo_voxmeter.png"
 ADMIN_PIC = "adminpicture.png"
 
+
+def load_youtube_client(api_key: str):
+    return build('youtube', 'v3', developerKey=api_key)
+
+def extract_video_id(url: str):
+
+    if 'youtu.be/' in url:
+        return url.split('youtu.be/')[1].split('?')[0]
+    if 'v=' in url:
+        return url.split('v=')[1].split('&')[0]
+    return url
+
+
+def fetch_comments_for_video(youtube, video_id, max_results=200):
+    comments = []
+    try:
+        request = youtube.commentThreads().list(
+            part="snippet",
+            videoId=video_id,
+            textFormat="plainText",
+            maxResults=100
+        )
+        response = request.execute()
+        while response:
+            for item in response.get('items', []):
+                snippet = item['snippet']['topLevelComment']['snippet']
+                comments.append({
+                    'comment': snippet.get('textDisplay'),
+                    'author': snippet.get('authorDisplayName'),
+                    'published_at': snippet.get('publishedAt')
+                })
+            if 'nextPageToken' in response and len(comments) < max_results:
+                response = youtube.commentThreads().list(
+                    part="snippet",
+                    videoId=video_id,
+                    textFormat="plainText",
+                    pageToken=response['nextPageToken'],
+                    maxResults=100
+                ).execute()
+            else:
+                break
+    except Exception as e:
+        st.warning(f"Gagal mengambil komentar untuk video {video_id}: {e}")
+    return comments
+
+def analyze_sentiments(df: pd.DataFrame):
+    analyzer = SentimentIntensityAnalyzer()
+    sentiments = []
+    for text in df['comment']:
+        if pd.isna(text):
+            text = ""
+        vs = analyzer.polarity_scores(str(text))
+        comp = vs['compound']
+        if comp >= 0.05:
+            label = 'Positif'
+        elif comp <= -0.05:
+            label = 'Negatif'
+        else:
+            label = 'Netral'
+        sentiments.append({
+            'compound': comp,
+            'label': label,
+            'neg': vs['neg'],
+            'neu': vs['neu'],
+            'pos': vs['pos']
+        })
+    s_df = pd.DataFrame(sentiments)
+    return pd.concat([df.reset_index(drop=True), s_df], axis=1)
+
+def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
+    buffer = io.BytesIO()
+    df_clean = df.astype(str)
+
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        df_clean.to_excel(writer, index=False, sheet_name='Sentimen')
+    buffer.seek(0)
+    return buffer.getvalue()
+
+def df_to_csv_bytes(df: pd.DataFrame) -> bytes:
+    return df.to_csv(index=False).encode('utf-8')
+
+def df_to_pdf_bytes(df: pd.DataFrame) -> bytes:
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+    textobject = c.beginText(40, height - 40)
+    rows = df.to_string(index=False).split('\n')
+    for i, row in enumerate(rows):
+        textobject.textLine(row)
+        if textobject.getY() < 40:
+            c.drawText(textobject)
+            c.showPage()
+            textobject = c.beginText(40, height - 40)
+    c.drawText(textobject)
+    c.save()
+    buffer.seek(0)
+    return buffer.read()
+
+VIDEO_LINKS = [
+    "https://youtu.be/Ugfjq0rDz8g?si=vWNO6nEAj9XB2LOB",
+    "https://youtu.be/Lr1OHmBpwjw?si=9Mvu8o69V8Zt40yn",
+    "https://youtu.be/5BFIAHBBdao?si=LPNB-8ZtJIk3xZVu",
+    "https://youtu.be/UzAgIMvb3c0?si=fH01vTOsKuUb8IoF",
+    "https://youtu.be/6tAZ-3FSYr0?si=rKhlEpS3oO7BOOtR",
+    "https://youtu.be/M-Qsvh18JNM?si=JJZ2-RKikuexaNw5",
+    "https://youtu.be/vSbe5C7BTuM?si=2MPkRB08C3P9Vilt",
+    "https://youtu.be/Y7hcBMJDNwk?si=rI0-dsunElb5XMVl",
+    "https://youtu.be/iySgErYzRR0?si=05mihs5jDRDXYgSZ",
+    "https://youtu.be/gwEt2_yxTmc?si=rfBwVGhePy35YA5D",
+    "https://youtu.be/9RCbgFi1idc?si=x7ILIEMAow5geJWS",
+    "https://youtu.be/ZgkVHrihbXM?si=k8OittX6RL_gcgrd",
+    "https://youtu.be/xvHiRY7skIk?si=nzAUYB71fQpLD2lv",
+]
+
 def inject_custom_css():
     st.markdown("""
         <style>
@@ -193,120 +307,7 @@ def inject_custom_css():
         .negative-sentiment { background-color: #dc3545; } /* Merah */
         </style>
     """, unsafe_allow_html=True)
-
-def load_youtube_client(api_key: str):
-    return build('youtube', 'v3', developerKey=api_key)
-
-def extract_video_id(url: str):
-
-    if 'youtu.be/' in url:
-        return url.split('youtu.be/')[1].split('?')[0]
-    if 'v=' in url:
-        return url.split('v=')[1].split('&')[0]
-    return url
-
-
-def fetch_comments_for_video(youtube, video_id, max_results=200):
-    comments = []
-    try:
-        request = youtube.commentThreads().list(
-            part="snippet",
-            videoId=video_id,
-            textFormat="plainText",
-            maxResults=100
-        )
-        response = request.execute()
-        while response:
-            for item in response.get('items', []):
-                snippet = item['snippet']['topLevelComment']['snippet']
-                comments.append({
-                    'comment': snippet.get('textDisplay'),
-                    'author': snippet.get('authorDisplayName'),
-                    'published_at': snippet.get('publishedAt')
-                })
-            if 'nextPageToken' in response and len(comments) < max_results:
-                response = youtube.commentThreads().list(
-                    part="snippet",
-                    videoId=video_id,
-                    textFormat="plainText",
-                    pageToken=response['nextPageToken'],
-                    maxResults=100
-                ).execute()
-            else:
-                break
-    except Exception as e:
-        st.warning(f"Gagal mengambil komentar untuk video {video_id}: {e}")
-    return comments
-
-def analyze_sentiments(df: pd.DataFrame):
-    analyzer = SentimentIntensityAnalyzer()
-    sentiments = []
-    for text in df['comment']:
-        if pd.isna(text):
-            text = ""
-        vs = analyzer.polarity_scores(str(text))
-        comp = vs['compound']
-        if comp >= 0.05:
-            label = 'Positif'
-        elif comp <= -0.05:
-            label = 'Negatif'
-        else:
-            label = 'Netral'
-        sentiments.append({
-            'compound': comp,
-            'label': label,
-            'neg': vs['neg'],
-            'neu': vs['neu'],
-            'pos': vs['pos']
-        })
-    s_df = pd.DataFrame(sentiments)
-    return pd.concat([df.reset_index(drop=True), s_df], axis=1)
-
-def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
-    buffer = io.BytesIO()
-    df_clean = df.astype(str)
-
-    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        df_clean.to_excel(writer, index=False, sheet_name='Sentimen')
-    buffer.seek(0)
-    return buffer.getvalue()
-
-def df_to_csv_bytes(df: pd.DataFrame) -> bytes:
-    return df.to_csv(index=False).encode('utf-8')
-
-def df_to_pdf_bytes(df: pd.DataFrame) -> bytes:
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-    textobject = c.beginText(40, height - 40)
-    rows = df.to_string(index=False).split('\n')
-    for i, row in enumerate(rows):
-        textobject.textLine(row)
-        if textobject.getY() < 40:
-            c.drawText(textobject)
-            c.showPage()
-            textobject = c.beginText(40, height - 40)
-    c.drawText(textobject)
-    c.save()
-    buffer.seek(0)
-    return buffer.read()
-
-VIDEO_LINKS = [
-    "https://youtu.be/Ugfjq0rDz8g?si=vWNO6nEAj9XB2LOB",
-    "https://youtu.be/Lr1OHmBpwjw?si=9Mvu8o69V8Zt40yn",
-    "https://youtu.be/5BFIAHBBdao?si=LPNB-8ZtJIk3xZVu",
-    "https://youtu.be/UzAgIMvb3c0?si=fH01vTOsKuUb8IoF",
-    "https://youtu.be/6tAZ-3FSYr0?si=rKhlEpS3oO7BOOtR",
-    "https://youtu.be/M-Qsvh18JNM?si=JJZ2-RKikuexaNw5",
-    "https://youtu.be/vSbe5C7BTuM?si=2MPkRB08C3P9Vilt",
-    "https://youtu.be/Y7hcBMJDNwk?si=rI0-dsunElb5XMVl",
-    "https://youtu.be/iySgErYzRR0?si=05mihs5jDRDXYgSZ",
-    "https://youtu.be/gwEt2_yxTmc?si=rfBwVGhePy35YA5D",
-    "https://youtu.be/9RCbgFi1idc?si=x7ILIEMAow5geJWS",
-    "https://youtu.be/ZgkVHrihbXM?si=k8OittX6RL_gcgrd",
-    "https://youtu.be/xvHiRY7skIk?si=nzAUYB71fQpLD2lv",
-]
-
+    
 # =========== membaca api , user, psww =============
 def check_credentials(user, pwd):
     expected_user = None
