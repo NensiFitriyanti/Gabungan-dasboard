@@ -15,31 +15,37 @@ from wordcloud import WordCloud
 from collections import Counter
 # Sastrawi.Stemmer.StemmerFactory tidak lagi diperlukan karena menggunakan VADER, jadi kita buang impornya
 
+# Konfigurasi halaman Streamlit
 st.set_page_config(page_title="VoxMeter Dashboard", layout="wide", initial_sidebar_state="expanded") 
 
+# Lokasi file gambar
 LOGO_FILE = "logo_voxmeter.png"
 ADMIN_PIC = "adminpicture.png"
 
 # --- Inisialisasi Sastrawi Stemmer dan Kamus Sentimen ---
-# Fungsi CSS Kustom
+# Bagian ini dibuang karena Anda beralih ke VADER, jadi tidak ada lagi Sastrawi Stemmer
+# dan kamus positif/negatif yang perlu diinisialisasi di sini.
+
+
+# Fungsi CSS Kustom untuk Tema Gelap (Abu-abu & Emas)
 def inject_custom_css():
     st.markdown("""
         <style>
-        /* Umum: Tema Gelap Profesional (Non-Biru) */
+        /* Umum: Tema Gelap Profesional (Abu-abu & Emas) */
         .stApp {
-            background-color: #1a1a2e; /* Latar belakang aplikasi utama */
+            background-color: #1a1a2e; /* Latar belakang aplikasi utama: sangat gelap */
             color: #e0e0e0; /* Warna teks terang */
         }
 
         /* Sidebar */
         [data-testid="stSidebar"] {
-            background-color: #212121; /* Warna sidebar abu-abu gelap */
+            background-color: #212121; /* Warna sidebar: abu-abu gelap */
             color: #e0e0e0;
-            border-right: 2px solid #FFB74D; /* Garis aksen oranye keemasan */
+            border-right: 2px solid #FFB74D; /* Garis aksen: oranye keemasan */
             box-shadow: 2px 0px 10px rgba(0, 0, 0, 0.3);
         }
         [data-testid="stSidebar"] .stButton > button {
-            background-color: #FFB74D; /* Warna aksen oranye keemasan untuk tombol sidebar */
+            background-color: #FFB74D; /* Warna tombol sidebar: oranye keemasan */
             color: #212121; /* Teks gelap di tombol terang */
             border-radius: 8px;
             border: none;
@@ -69,16 +75,15 @@ def inject_custom_css():
         
         /* Judul dan Teks */
         h1, h2, h3, h4, h5, h6 {
-            color: #FFB74D; /* Warna aksen oranye keemasan untuk judul */
+            color: #FFB74D; /* Warna aksen: oranye keemasan untuk judul */
             font-family: 'Segoe UI', sans-serif;
         }
         p {
             font-family: 'Roboto', sans-serif;
         }
 
-        /* Kotak Konten Umum (seperti kartu filter, kelola data, insight) */
-        /* Class ini sering digunakan Streamlit untuk kolom atau container tanpa border=True */
-        .st-emotion-cache-1r4qj8m, .st-emotion-cache-1r4qj8m > div > div { /* Target elemen Streamlit yang menampung konten utama */
+        /* Kotak Konten Umum (kartu filter, kelola data, insight) */
+        .st-emotion-cache-1r4qj8m { /* Ini adalah class yang mengontrol kolom atau kontainer */
              background-color: #212121; /* Warna abu-abu gelap profesional untuk kartu */
             padding: 20px;
             border-radius: 12px;
@@ -167,7 +172,6 @@ def inject_custom_css():
             border-radius: 8px;
             padding: 10px 15px;
         }
-        /* Menggunakan warna aksen yang lebih gelap untuk latar belakang alert */
         .stAlert.st-success { background-color: #2e7d32; color: #d4edda; border-left: 5px solid #4CAF50; }
         .stAlert.st-info { background-color: #0277bd; color: #e1f5fe; border-left: 5px solid #03A9F4; }
         .stAlert.st-warning { background-color: #ef6c00; color: #fff3cd; border-left: 5px solid #FFC107; }
@@ -182,7 +186,7 @@ def inject_custom_css():
         }
 
         /* WordCloud figure background */
-        .wordcloud-container { /* Tambahkan div ini di sekitar st.pyplot() untuk WordCloud */
+        .wordcloud-container { 
             background-color: #212121; /* Latar belakang WordCloud */
             border-radius: 12px;
             padding: 10px;
@@ -192,18 +196,20 @@ def inject_custom_css():
         }
 
         /* Warna spesifik untuk kartu sentimen */
-        /* Pertahankan warna dasar sentiment untuk visualisasi cepat */
         .positive-sentiment { background-color: #28a745; } /* Hijau */
         .neutral-sentiment { background-color: #6c757d; } /* Abu-abu */
         .negative-sentiment { background-color: #dc3545; } /* Merah */
         </style>
     """, unsafe_allow_html=True)
 
+# Panggil fungsi CSS kustom untuk menerapkan tema
 inject_custom_css()
 
+# Fungsi untuk memuat klien YouTube API
 def load_youtube_client(api_key: str):
     return build('youtube', 'v3', developerKey=api_key)
 
+# Fungsi untuk mengekstrak ID video dari URL YouTube
 def extract_video_id(url: str):
     if 'youtu.be/' in url:
         return url.split('youtu.be/')[1].split('?')[0]
@@ -211,7 +217,7 @@ def extract_video_id(url: str):
         return url.split('v=')[1].split('&')[0]
     return url
 
-
+# Fungsi untuk mengambil komentar video dari YouTube
 def fetch_comments_for_video(youtube, video_id, max_results=200):
     comments = []
     try:
@@ -244,13 +250,13 @@ def fetch_comments_for_video(youtube, video_id, max_results=200):
         st.warning(f"Gagal mengambil komentar untuk video {video_id}: {e}")
     return comments
 
-# Fungsi analyze_sentiments yang baru menggunakan VADER
+# Fungsi untuk menganalisis sentimen menggunakan VADER
 def analyze_sentiments(df: pd.DataFrame):
     analyzer = SentimentIntensityAnalyzer()
     sentiments = []
     for text in df['comment']:
         if pd.isna(text):
-            text = "" # Handle NaN values
+            text = "" # Tangani nilai NaN
         vs = analyzer.polarity_scores(str(text))
         comp = vs['compound']
         if comp >= 0.05:
@@ -269,7 +275,7 @@ def analyze_sentiments(df: pd.DataFrame):
     s_df = pd.DataFrame(sentiments)
     return pd.concat([df.reset_index(drop=True), s_df], axis=1)
 
-
+# Fungsi untuk mengkonversi DataFrame ke format Excel (bytes)
 def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
     buffer = io.BytesIO()
     df_clean = df.astype(str)
@@ -279,9 +285,11 @@ def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
     buffer.seek(0)
     return buffer.getvalue()
 
+# Fungsi untuk mengkonversi DataFrame ke format CSV (bytes)
 def df_to_csv_bytes(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False).encode('utf-8')
 
+# Fungsi untuk mengkonversi DataFrame ke format PDF (bytes)
 def df_to_pdf_bytes(df: pd.DataFrame) -> bytes:
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=letter)
@@ -307,6 +315,7 @@ def df_to_pdf_bytes(df: pd.DataFrame) -> bytes:
     buffer.seek(0)
     return buffer.read()
 
+# Daftar link video YouTube
 VIDEO_LINKS = [
     "https://youtu.be/Ugfjq0rDz8g?si=vWNO6nEAj9XB2LOB",
     "https://youtu.be/Lr1OHmBpwjw?si=9Mvu8o69V8Zt40yn",
@@ -323,19 +332,22 @@ VIDEO_LINKS = [
     "https://youtu.be/xvHiRY7skIk?si=nzAUYB71fQpLD2lv",
 ]
 
-# =========== membaca api (tanpa user/passw) =============
+# =========== Mengambil YouTube API Key (tanpa user/passw) =============
+# Mengambil API key langsung dari Streamlit secrets atau environment variables
+api_key = None
 if 'YOUTUBE_API_KEY' in st.secrets:
     api_key = st.secrets['YOUTUBE_API_KEY']
 else:
     api_key = os.getenv('YOUTUBE_API_KEY')
 
+
 # ========= Tampilan Dashboard Utama ========
 
-
+# Tampilkan logo VoxMeter di paling atas, di tengah dasbor
 col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
 with col_logo2:
-    st.image(LOGO_FILE, width=180) 
-    st.markdown("---") 
+    st.image(LOGO_FILE, width=180) # Sesuaikan width jika perlu
+    st.markdown("---") # Garis pemisah setelah logo
 
 # Sidebar
 st.sidebar.image(ADMIN_PIC, width=80)
@@ -344,7 +356,7 @@ menu = st.sidebar.radio("MENU", ["Sentiment", "Logout"])
 
 if menu == 'Logout':
     if st.button('Logout sekarang'):
-        # Logika logout (opsional, karena tidak ada login, ini hanya untuk membersihkan session_state)
+        # Logika logout (hanya untuk membersihkan session_state jika ada data)
         if 'df_comments' in st.session_state:
             del st.session_state['df_comments']
         st.experimental_rerun()
@@ -382,7 +394,7 @@ if menu == 'Sentiment':
             neu_count = (filtered['label']=='Netral').sum()
             neg_count = (filtered['label']=='Negatif').sum()
 
-            st.markdown("### 📊 Ringkasan Sentimen", unsafe_allow_html=True) # Judul untuk ringkasan
+            st.markdown("### 📊 Ringkasan Sentimen", unsafe_allow_html=True) 
             c1, c2, c3 = st.columns([1,1,1])
             with c1:
                 st.markdown(f"<div class='positive-sentiment' style='padding:20px;border-radius:12px;color:white;text-align:center'><h3>\U0001F600<br>Sentimen Positif</h3><h2>{pos_count}</h2></div>", unsafe_allow_html=True)
@@ -428,7 +440,6 @@ if menu == 'Sentiment':
             st.markdown("### 📥 Ambil & Export Data", unsafe_allow_html=True)
             colu1, colu2, colu3 = st.columns([1,1,1])
             with colu1:
-                # api_key sudah diambil di awal skrip
                 if st.button('Ambil data lagi dari daftar video', use_container_width=True): 
                     if not api_key:
                         st.error('API Key YouTube belum diset di Streamlit secrets atau .env')
@@ -446,7 +457,6 @@ if menu == 'Sentiment':
                             if all_comments:
                                 df_new = pd.DataFrame(all_comments)
                                 df_new['published_at'] = pd.to_datetime(df_new['published_at'])
-                                
                                 df_new = analyze_sentiments(df_new)
 
                                 st.session_state['df_comments'] = df_new
