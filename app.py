@@ -13,8 +13,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from wordcloud import WordCloud
 from collections import Counter
-# Pastikan Sastrawi.Stemmer.StemmerFactory diimpor jika digunakan
-from Sastrawi.Stemmer.StemmerFactory import StemmerFactory 
+# Sastrawi.Stemmer.StemmerFactory tidak lagi diperlukan karena menggunakan VADER, jadi kita buang impornya
 
 st.set_page_config(page_title="VoxMeter Dashboard", layout="wide", initial_sidebar_state="expanded") 
 
@@ -22,27 +21,6 @@ LOGO_FILE = "logo_voxmeter.png"
 ADMIN_PIC = "adminpicture.png"
 
 # --- Inisialisasi Sastrawi Stemmer dan Kamus Sentimen ---
-# Inisialisasi Sastrawi Stemmer
-factory = StemmerFactory()
-stemmer = factory.create_stemmer()
-
-# Kamus sentimen (untuk fungsi analyze_sentiments_sastrawi, jika ingin menggunakan)
-# Karena Anda beralih ke VADER, kamus ini mungkin tidak terpakai lagi secara langsung
-# Namun, saya akan tetap menyimpannya sebagai contoh jika Anda ingin kembali ke metode ini
-kamus_positif = {
-    "bagus", "baik", "keren", "suka", "hebat", "mantap", "terima kasih", "berhasil", "menarik",
-    "luar biasa", "positif", "rekomendasi", "setuju", "mendukung", "cinta", "inspiratif",
-    "bermanfaat", "inovatif", "jempol", "sukses"
-}
-
-kamus_negatif = {
-    "jelek", "buruk", "tidak suka", "benci", "gagal", "kecewa", "masalah", "buruk sekali",
-    "menyesal", "negatif", "kritik", "tidak setuju", "menentang", "bosan", "marah", "memalukan",
-    "merugikan", "tidak adil", "rugi", "salah"
-}
-# --- End Inisialisasi Sastrawi dan Kamus ---
-
-
 # Fungsi CSS Kustom
 def inject_custom_css():
     st.markdown("""
@@ -345,62 +323,30 @@ VIDEO_LINKS = [
     "https://youtu.be/xvHiRY7skIk?si=nzAUYB71fQpLD2lv",
 ]
 
-# =========== membaca api , user, psww =============
-# Mengambil kredensial dari Streamlit secrets atau environment variables
-if 'APP_USER' in st.secrets:
-    expected_user = st.secrets['APP_USER']
+# =========== membaca api (tanpa user/passw) =============
+if 'YOUTUBE_API_KEY' in st.secrets:
+    api_key = st.secrets['YOUTUBE_API_KEY']
 else:
-    expected_user = os.getenv('APP_USER')
-if 'APP_PASS' in st.secrets:
-    expected_pass = st.secrets['APP_PASS']
-else:
-    expected_pass = os.getenv('APP_PASS')
+    api_key = os.getenv('YOUTUBE_API_KEY')
+
+# ========= Tampilan Dashboard Utama ========
 
 
-# Fungsi check_credentials harus didefinisikan sebelum digunakan
-def check_credentials(user, pwd):
-    # Menggunakan expected_user dan expected_pass yang sudah didefinisikan global
-    return (user == expected_user) and (pwd == expected_pass)
+col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
+with col_logo2:
+    st.image(LOGO_FILE, width=180) 
+    st.markdown("---") 
 
-
-# ======== tampilan login =========
-
-if 'authenticated' not in st.session_state:
-    st.session_state['authenticated'] = False
-
-if not st.session_state['authenticated']:
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        # Tampilan kotak login dengan tema profesional
-        st.markdown(f"""
-            <div style="background-color: #212121; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);">
-                <img src="data:image/png;base64,{base64.b64encode(open(LOGO_FILE, "rb").read()).decode()}" width="160" style="margin-bottom: 20px;">
-                <h1 style="color: #FFB74D;">Log In</h1>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with st.form('login_form', clear_on_submit=False):
-            username = st.text_input('Username')
-            password = st.text_input('Password', type='password')
-            submitted = st.form_submit_button('Log In')
-            
-            if submitted:
-                if check_credentials(username, password):
-                    st.session_state['authenticated'] = True
-                    st.experimental_rerun()
-                else:
-                    st.error('Username atau password salah')
-    st.stop() # Hentikan eksekusi jika belum login
-
-# ========= tampilan dahboard ========
-# Sidebar harus dirender setelah login berhasil
+# Sidebar
 st.sidebar.image(ADMIN_PIC, width=80)
 st.sidebar.markdown("**Administrator**")
 menu = st.sidebar.radio("MENU", ["Sentiment", "Logout"]) 
 
 if menu == 'Logout':
     if st.button('Logout sekarang'):
-        st.session_state['authenticated'] = False
+        # Logika logout (opsional, karena tidak ada login, ini hanya untuk membersihkan session_state)
+        if 'df_comments' in st.session_state:
+            del st.session_state['df_comments']
         st.experimental_rerun()
 
 if menu == 'Sentiment':
@@ -419,10 +365,8 @@ if menu == 'Sentiment':
             with colf1:
                 date_filter = st.checkbox('Tampilkan tanpa filter', value=True)
             with colf2:
-                # Disable selectbox jika filter tidak aktif
                 selected_month = st.selectbox('Bulan', options=['All']+[str(i) for i in range(1,13)], disabled=date_filter)
             with colf3:
-                # Disable selectbox jika filter tidak aktif
                 selected_year = st.selectbox('Tahun', options=['All']+list(map(str, range(2020, datetime.now().year+1))), disabled=date_filter)
 
         df = st.session_state['df_comments']
@@ -441,7 +385,6 @@ if menu == 'Sentiment':
             st.markdown("### 📊 Ringkasan Sentimen", unsafe_allow_html=True) # Judul untuk ringkasan
             c1, c2, c3 = st.columns([1,1,1])
             with c1:
-                # Menggunakan class CSS untuk kartu sentimen
                 st.markdown(f"<div class='positive-sentiment' style='padding:20px;border-radius:12px;color:white;text-align:center'><h3>\U0001F600<br>Sentimen Positif</h3><h2>{pos_count}</h2></div>", unsafe_allow_html=True)
             with c2:
                 st.markdown(f"<div class='neutral-sentiment' style='padding:20px;border-radius:12px;color:white;text-align:center'><h3>\U0001F610<br>Sentimen Netral</h3><h2>{neu_count}</h2></div>", unsafe_allow_html=True)
@@ -453,10 +396,9 @@ if menu == 'Sentiment':
             stat_df = filtered.copy()
             stat_df['date'] = stat_df['published_at'].dt.date
             by_date = stat_df.groupby('date').size().reset_index(name='count')
-            # Latar belakang plot Matplotlib disesuaikan
             fig, ax = plt.subplots(facecolor='#212121', figsize=(10, 5)) 
             ax.set_facecolor('#212121') 
-            ax.plot(by_date['date'], by_date['count'], marker='o', color='#FFB74D', linewidth=2) # Warna garis aksen
+            ax.plot(by_date['date'], by_date['count'], marker='o', color='#FFB74D', linewidth=2) 
             ax.set_xlabel('Tanggal', color='#e0e0e0')
             ax.set_ylabel('Jumlah Komentar', color='#e0e0e0')
             ax.tick_params(axis='x', colors='#e0e0e0', rotation=45)
@@ -470,10 +412,9 @@ if menu == 'Sentiment':
             # Pie chart
             st.markdown('### 🥧 Distribusi Sentimen', unsafe_allow_html=True)
             pie_df = pd.Series([pos_count, neu_count, neg_count], index=['Positif','Netral','Negatif'])
-            colors = ['#28a745', '#6c757d', '#dc3545'] # Warna konsisten untuk sentimen
-            # Latar belakang plot Matplotlib disesuaikan
+            colors = ['#28a745', '#6c757d', '#dc3545'] 
             fig2, ax2 = plt.subplots(facecolor='#212121', figsize=(6, 6)) 
-            pie_df.plot.pie(y='count', autopct='%1.1f%%', ax=ax2, colors=colors, textprops={'color': 'white'}) # Label putih
+            pie_df.plot.pie(y='count', autopct='%1.1f%%', ax=ax2, colors=colors, textprops={'color': 'white'}) 
             ax2.set_ylabel('')
             st.pyplot(fig2)
         else:
@@ -487,13 +428,7 @@ if menu == 'Sentiment':
             st.markdown("### 📥 Ambil & Export Data", unsafe_allow_html=True)
             colu1, colu2, colu3 = st.columns([1,1,1])
             with colu1:
-                # Mengambil API key di sini, saat dibutuhkan
-                api_key = None
-                if 'YOUTUBE_API_KEY' in st.secrets:
-                    api_key = st.secrets['YOUTUBE_API_KEY']
-                else:
-                    api_key = os.getenv('YOUTUBE_API_KEY')
-
+                # api_key sudah diambil di awal skrip
                 if st.button('Ambil data lagi dari daftar video', use_container_width=True): 
                     if not api_key:
                         st.error('API Key YouTube belum diset di Streamlit secrets atau .env')
@@ -512,7 +447,6 @@ if menu == 'Sentiment':
                                 df_new = pd.DataFrame(all_comments)
                                 df_new['published_at'] = pd.to_datetime(df_new['published_at'])
                                 
-                                # Mengaplikasikan analyze_sentiments (VADER) ke setiap komentar
                                 df_new = analyze_sentiments(df_new)
 
                                 st.session_state['df_comments'] = df_new
@@ -523,7 +457,6 @@ if menu == 'Sentiment':
                         except Exception as e:
                             st.error(f"Terjadi kesalahan saat mengambil atau menganalisis data: {e}")
             
-            # Kolom untuk tombol download
             with colu2:
                 st.download_button(
                     'Export CSV',
@@ -538,7 +471,6 @@ if menu == 'Sentiment':
                     file_name='sentimen.xlsx',
                     use_container_width=True
                 )
-            # Tombol PDF di luar kolom agar bisa pakai use_container_width (opsional, bisa di dalam kolom juga)
             st.markdown("") 
             try:
                 st.download_button(
@@ -599,7 +531,6 @@ if menu == 'Sentiment':
                                 idx_in_df_display = original_df_index_row.index[0]
                                 comment_to_delete = df_display.loc[idx_in_df_display, 'comment']
                                 
-                                # Temukan index di DataFrame asli 'df' berdasarkan konten komentar
                                 indices_in_original_df = df[df['comment'] == comment_to_delete].index
                                 
                                 if not indices_in_original_df.empty:
@@ -651,7 +582,7 @@ if submenu == 'Insight & Rekomendasi':
             if count > 0:
                 wc_text = " ".join(text_series.dropna().astype(str))
                 wc = WordCloud(width=600, height=300, background_color="white", colormap="viridis").generate(wc_text)
-                fig, ax = plt.subplots(figsize=(6,3), facecolor='#212121') # Latar belakang WordCloud disesuaikan
+                fig, ax = plt.subplots(figsize=(6,3), facecolor='#212121') 
                 ax.imshow(wc, interpolation='bilinear')
                 ax.axis("off")
                 st.pyplot(fig)
@@ -678,7 +609,6 @@ if submenu == 'Insight & Rekomendasi':
             neg_insight = "Komentar negatif rendah 👍."
             neg_rekomen = "Tetap monitor agar tidak meningkat, tanggapi kritik dengan bijak."
 
-        # Menggunakan class CSS untuk kartu sentimen
         make_box_with_wc("Sentimen Positif", pos_count, pos_pct, "#28a745",
                          pos_insight, pos_rekomen, df[df['label']=="Positif"]['comment'])
         make_box_with_wc("Sentimen Netral", neu_count, neu_pct, "#6c757d",
@@ -687,7 +617,6 @@ if submenu == 'Insight & Rekomendasi':
                          neg_insight, neg_rekomen, df[df['label']=="Negatif"]['comment'])
 
 # ================= TOP 5 KATA =================
-# Pastikan df_comments ada dan tidak kosong sebelum mencoba memprosesnya
 if 'df_comments' in st.session_state and not st.session_state['df_comments'].empty:
     df = st.session_state['df_comments']
     all_text = " ".join(df['comment'].dropna().astype(str).tolist())
