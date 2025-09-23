@@ -89,18 +89,18 @@ def inject_custom_css():
             font-family: 'Roboto', sans-serif; /* General text font */
         }
 
-        /* Kotak Konten (seperti kartu) - Diperbarui */
-        .st-emotion-cache-1r4qj8m {
-            background-color: #1A202C; /* Warna abu-abu gelap profesional */
+        /* Kotak Konten (seperti kartu) */
+        .st-emotion-cache-1r4qj8m { /* Ini adalah class yang mengontrol kolom - mungkin berubah di versi Streamlit mendatang */
+            background-color: #0f3460;
             padding: 20px;
-            border-radius: 12px;
+            border-radius: 12px; /* Sudut lebih membulat */
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
             border: 1px solid #533483;
             transition: all 0.3s ease-in-out;
             margin-bottom: 20px;
         }
         .st-emotion-cache-1r4qj8m:hover {
-            transform: translateY(-5px);
+            transform: translateY(-5px); /* Efek 'terangkat' saat kursor di atasnya */
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.6);
         }
 
@@ -113,10 +113,10 @@ def inject_custom_css():
             padding: 8px 12px;
         }
         .stTextInput > div > div > input:focus, .stSelectbox > div > div > div > div > input:focus {
-            border-color: #e94560;
+            border-color: #e94560; /* Accent border on focus */
             box-shadow: 0 0 0 0.2rem rgba(233, 69, 96, 0.25);
         }
-        .stSelectbox div[role="listbox"] {
+        .stSelectbox div[role="listbox"] { /* Dropdown menu styling */
             background-color: #0f3460;
             border: 1px solid #533483;
             border-radius: 8px;
@@ -130,7 +130,7 @@ def inject_custom_css():
 
         /* Tombol di Konten Utama */
         .stButton > button {
-            background-color: #e94560;
+            background-color: #e94560; /* Warna tombol aksen */
             color: white;
             border-radius: 8px;
             border: none;
@@ -146,19 +146,19 @@ def inject_custom_css():
         /* DataFrame Styling */
         .stDataFrame {
             border-radius: 8px;
-            overflow: hidden;
+            overflow: hidden; /* Memastikan sudut membulat berlaku untuk konten */
             border: 1px solid #533483;
         }
         .dataframe {
-            background-color: #0f3460;
+            background-color: #0f3460; /* Latar belakang lebih gelap untuk tabel */
             color: #e0e0e0;
         }
-        .dataframe th {
+        .dataframe th { /* Header tabel */
             background-color: #533483;
             color: white;
             font-weight: bold;
         }
-        .dataframe tr:nth-child(even) {
+        .dataframe tr:nth-child(even) { /* Warna striping zebra */
             background-color: #0f3460;
         }
         .dataframe tr:nth-child(odd) {
@@ -175,9 +175,9 @@ def inject_custom_css():
         .stAlert.st-warning { background-color: #4d441e; color: #fff3cd; border-left: 5px solid #ffc107; }
         .stAlert.st-error { background-color: #4d1e2e; color: #f8d7da; border-left: 5px solid #dc3545; }
         
-        /* Matplotlib figure background for dark theme - Diperbarui */
-        .stPlotlyChart {
-            background-color: #1A202C; /* Cocokkan latar belakang kartu */
+        /* Matplotlib figure background for dark theme */
+        .stPlotlyChart { /* Ini akan menargetkan Chart dari Streamlit*/
+            background-color: #0f3460; /* Cocokkan latar belakang kartu */
             border-radius: 12px;
             padding: 10px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
@@ -313,19 +313,18 @@ VIDEO_LINKS = [
 ]
 
 # =========== membaca api , user, psww =============
-if 'APP_USER' in st.secrets:
-    expected_user = st.secrets['APP_USER']
-else:
-    expected_user = os.getenv('APP_USER')
-if 'APP_PASS' in st.secrets:
-    expected_pass = st.secrets['APP_PASS']
-else:
-    expected_pass = os.getenv('APP_PASS')
-
-if 'YOUTUBE_API_KEY' in st.secrets: 
-    api_key = st.secrets['YOUTUBE_API_KEY']
-else:
-    api_key = os.getenv('YOUTUBE_API_KEY')
+def check_credentials(user, pwd):
+    expected_user = None
+    expected_pass = None
+    if 'APP_USER' in st.secrets:
+        expected_user = st.secrets['APP_USER']
+    else:
+        expected_user = os.getenv('APP_USER')
+    if 'APP_PASS' in st.secrets:
+        expected_pass = st.secrets['APP_PASS']
+    else:
+        expected_pass = os.getenv('APP_PASS')
+    return (user == expected_user) and (pwd == expected_pass)
 
 
 # ======== tampilan login =========
@@ -336,11 +335,18 @@ if 'authenticated' not in st.session_state:
 if not st.session_state['authenticated']:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
+        st.markdown(f"""
+            <div style="background-color: #0f3460; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);">
+                <img src="data:image/png;base64,{base64.b64encode(open(LOGO_FILE, "rb").read()).decode()}" width="160" style="margin-bottom: 20px;">
+                <h1 style="color: #e94560;">Log In</h1>
+            </div>
+            """, unsafe_allow_html=True)
         
         with st.form('login_form', clear_on_submit=False):
             username = st.text_input('Username')
             password = st.text_input('Password', type='password')
             submitted = st.form_submit_button('Log In')
+            
             if submitted:
                 if check_credentials(username, password):
                     st.session_state['authenticated'] = True
