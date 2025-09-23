@@ -560,7 +560,8 @@ if menu == 'Sentiment':
             with colf2:
                 selected_month = st.selectbox('Bulan', options=['All']+[str(i) for i in range(1,13)], disabled=date_filter)
             with colf3:
-                selected_year = st.selectbox('Tahun', options=['All']+list(map(str, range(2020, datetime.now().year+1)), disabled=date_filter)
+                # Perbaikan: Menambahkan tanda kurung penutup yang hilang
+                selected_year = st.selectbox('Tahun', options=['All']+list(map(str, range(2020, datetime.now().year+1))), disabled=date_filter)
 
         df = st.session_state['df_comments']
         if not df.empty and 'label' in df.columns:
