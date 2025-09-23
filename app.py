@@ -313,18 +313,19 @@ VIDEO_LINKS = [
 ]
 
 # =========== membaca api , user, psww =============
-def check_credentials(user, pwd):
-    expected_user = None
-    expected_pass = None
-    if 'APP_USER' in st.secrets:
-        expected_user = st.secrets['APP_USER']
-    else:
-        expected_user = os.getenv('APP_USER')
-    if 'APP_PASS' in st.secrets:
-        expected_pass = st.secrets['APP_PASS']
-    else:
-        expected_pass = os.getenv('APP_PASS')
-    return (user == expected_user) and (pwd == expected_pass)
+if 'APP_USER' in st.secrets:
+    expected_user = st.secrets['APP_USER']
+else:
+    expected_user = os.getenv('APP_USER')
+if 'APP_PASS' in st.secrets:
+    expected_pass = st.secrets['APP_PASS']
+else:
+    expected_pass = os.getenv('APP_PASS')
+
+if 'YOUTUBE_API_KEY' in st.secrets: 
+    api_key = st.secrets['YOUTUBE_API_KEY']
+else:
+    api_key = os.getenv('YOUTUBE_API_KEY')
 
 
 # ======== tampilan login =========
