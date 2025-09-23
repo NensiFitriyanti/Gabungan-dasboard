@@ -13,7 +13,6 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from wordcloud import WordCloud
 from collections import Counter
-# Sastrawi.Stemmer.StemmerFactory tidak lagi diperlukan karena menggunakan VADER, jadi kita buang impornya
 
 # Konfigurasi halaman Streamlit
 st.set_page_config(page_title="VoxMeter Dashboard", layout="wide", initial_sidebar_state="expanded") 
@@ -22,31 +21,33 @@ st.set_page_config(page_title="VoxMeter Dashboard", layout="wide", initial_sideb
 LOGO_FILE = "logo_voxmeter.png"
 ADMIN_PIC = "adminpicture.png"
 
-# --- Inisialisasi Sastrawi Stemmer dan Kamus Sentimen ---
-# Bagian ini dibuang karena Anda beralih ke VADER, jadi tidak ada lagi Sastrawi Stemmer
-# dan kamus positif/negatif yang perlu diinisialisasi di sini.
+# --- Inisialisasi status mode tema ---
+# Simpan status tema di session state
+if 'theme' not in st.session_state:
+    st.session_state.theme = 'dark' # Tema default adalah gelap
 
-
-# Fungsi CSS Kustom untuk Tema Gelap (Abu-abu & Emas)
-def inject_custom_css():
-    st.markdown("""
+# Fungsi CSS Kustom untuk kedua tema
+def inject_custom_css(theme):
+    if theme == 'dark':
+        # CSS untuk TEMA GELAP (Abu-abu & Emas)
+        css = """
         <style>
-        /* Umum: Tema Gelap Profesional (Abu-abu & Emas) */
+        /* Umum: Tema Gelap Profesional */
         .stApp {
-            background-color: #1a1a2e; /* Latar belakang aplikasi utama: sangat gelap */
+            background-color: #333333; /* Latar belakang utama: abu-abu gelap */
             color: #e0e0e0; /* Warna teks terang */
         }
 
         /* Sidebar */
         [data-testid="stSidebar"] {
-            background-color: #212121; /* Warna sidebar: abu-abu gelap */
-            color: #e0e0e0;
-            border-right: 2px solid #FFB74D; /* Garis aksen: oranye keemasan */
+            background-color: #FFB74D; /* Warna sidebar: emas */
+            color: #212121; /* Warna teks gelap */
+            border-right: 2px solid #212121; /* Garis aksen abu-abu gelap */
             box-shadow: 2px 0px 10px rgba(0, 0, 0, 0.3);
         }
         [data-testid="stSidebar"] .stButton > button {
-            background-color: #FFB74D; /* Warna tombol sidebar: oranye keemasan */
-            color: #212121; /* Teks gelap di tombol terang */
+            background-color: #212121; /* Warna tombol sidebar: abu-abu gelap */
+            color: #FFB74D; /* Teks emas di tombol gelap */
             border-radius: 8px;
             border: none;
             padding: 10px 20px;
@@ -54,41 +55,42 @@ def inject_custom_css():
             transition: all 0.2s ease-in-out;
         }
         [data-testid="stSidebar"] .stButton > button:hover {
-            background-color: #FFA000; /* Oranye lebih gelap saat hover */
+            background-color: #000000; /* Hitam lebih gelap saat hover */
             transform: translateY(-2px);
         }
         .stRadio > div {
-            background-color: #212121;
+            background-color: #FFB74D;
             border-radius: 8px;
             padding: 10px;
             margin-bottom: 5px;
         }
         .stRadio > div label {
-            color: #e0e0e0;
+            color: #212121;
         }
         .stRadio > div [aria-checked="true"] div:first-child {
-            border-color: #FFB74D !important; /* Aksen oranye keemasan untuk radio button aktif */
+            border-color: #212121 !important; /* Aksen abu-abu gelap untuk radio button aktif */
         }
         .stRadio > div [aria-checked="true"] div:first-child::after {
-            background-color: #FFB74D !important;
+            background-color: #212121 !important;
         }
         
         /* Judul dan Teks */
         h1, h2, h3, h4, h5, h6 {
-            color: #FFB74D; /* Warna aksen: oranye keemasan untuk judul */
+            color: #FFB74D; /* Warna aksen: emas untuk judul */
             font-family: 'Segoe UI', sans-serif;
         }
         p {
             font-family: 'Roboto', sans-serif;
+            color: #e0e0e0;
         }
 
         /* Kotak Konten Umum (kartu filter, kelola data, insight) */
-        .st-emotion-cache-1r4qj8m { /* Ini adalah class yang mengontrol kolom atau kontainer */
-             background-color: #212121; /* Warna abu-abu gelap profesional untuk kartu */
+        .st-emotion-cache-1r4qj8m, .st-emotion-cache-1r4qj8m > div > div {
+            background-color: #424242; /* Warna kartu: abu-abu sedang */
             padding: 20px;
             border-radius: 12px;
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
-            border: 1px solid #424242; /* Garis border lebih lembut */
+            border: 1px solid #555555;
             transition: all 0.3s ease-in-out;
             margin-bottom: 20px;
         }
@@ -99,32 +101,32 @@ def inject_custom_css():
 
         /* Input Fields dan Select Boxes */
         .stTextInput > div > div > input, .stSelectbox > div > div > div > div > input, .stNumberInput > div > div > input {
-            background-color: #212121; /* Warna input field */
+            background-color: #424242;
             color: #e0e0e0;
-            border: 1px solid #424242;
+            border: 1px solid #555555;
             border-radius: 8px;
             padding: 8px 12px;
         }
         .stTextInput > div > div > input:focus, .stSelectbox > div > div > div > div > input:focus {
-            border-color: #FFB74D; /* Aksen oranye keemasan saat fokus */
+            border-color: #FFB74D;
             box-shadow: 0 0 0 0.2rem rgba(255, 183, 77, 0.25);
         }
         .stSelectbox div[role="listbox"] {
-            background-color: #212121;
-            border: 1px solid #424242;
+            background-color: #424242;
+            border: 1px solid #555555;
             border-radius: 8px;
         }
         .stSelectbox div[role="option"] {
             color: #e0e0e0;
         }
         .stSelectbox div[role="option"]:hover {
-            background-color: #424242;
+            background-color: #555555;
         }
 
         /* Tombol di Konten Utama */
         .stButton > button {
-            background-color: #FFB74D; /* Warna aksen oranye keemasan untuk tombol utama */
-            color: #212121; /* Teks gelap di tombol terang */
+            background-color: #FFB74D;
+            color: #212121;
             border-radius: 8px;
             border: none;
             padding: 10px 20px;
@@ -132,14 +134,14 @@ def inject_custom_css():
             transition: all 0.2s ease-in-out;
         }
         .stButton > button:hover {
-            background-color: #FFA000; /* Oranye lebih gelap saat hover */
+            background-color: #FFA000;
             transform: translateY(-2px);
         }
         /* Tombol sekunder (untuk Hapus) */
         .stButton[data-testid="stFormSubmitButton"] > button[type="submit"] {
-            background-color: #dc3545; /* Merah untuk tombol Hapus */
+            background-color: #dc3545;
             border-color: #dc3545;
-            color: white; /* Pastikan teks putih */
+            color: white;
         }
         .stButton[data-testid="stFormSubmitButton"] > button[type="submit"]:hover {
             background-color: #c82333;
@@ -149,22 +151,22 @@ def inject_custom_css():
         .stDataFrame {
             border-radius: 8px;
             overflow: hidden;
-            border: 1px solid #424242; /* Border dataframe */
+            border: 1px solid #555555;
         }
         .dataframe {
-            background-color: #212121; /* Latar belakang lebih gelap untuk tabel */
+            background-color: #424242;
             color: #e0e0e0;
         }
         .dataframe th {
-            background-color: #424242; /* Header tabel */
+            background-color: #555555;
             color: white;
             font-weight: bold;
         }
         .dataframe tr:nth-child(even) {
-            background-color: #212121;
+            background-color: #424242;
         }
         .dataframe tr:nth-child(odd) {
-            background-color: #1a1a2e; /* Lebih gelap untuk striping */
+            background-color: #333333;
         }
 
         /* Pesan Info/Sukses/Peringatan */
@@ -179,7 +181,7 @@ def inject_custom_css():
         
         /* Matplotlib figure background for dark theme */
         .stPlotlyChart {
-            background-color: #212121; /* Cocokkan latar belakang kartu konten */
+            background-color: #424242;
             border-radius: 12px;
             padding: 10px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
@@ -187,7 +189,7 @@ def inject_custom_css():
 
         /* WordCloud figure background */
         .wordcloud-container { 
-            background-color: #212121; /* Latar belakang WordCloud */
+            background-color: #424242;
             border-radius: 12px;
             padding: 10px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
@@ -196,14 +198,190 @@ def inject_custom_css():
         }
 
         /* Warna spesifik untuk kartu sentimen */
-        .positive-sentiment { background-color: #28a745; } /* Hijau */
-        .neutral-sentiment { background-color: #6c757d; } /* Abu-abu */
-        .negative-sentiment { background-color: #dc3545; } /* Merah */
+        .positive-sentiment { background-color: #28a745; }
+        .neutral-sentiment { background-color: #6c757d; }
+        .negative-sentiment { background-color: #dc3545; }
         </style>
-    """, unsafe_allow_html=True)
+        """
+    else:
+        # CSS untuk TEMA TERANG (Biru & Sky Blue)
+        css = """
+        <style>
+        /* Umum: Tema Terang */
+        .stApp {
+            background-color: #87CEEB; /* Latar belakang utama: sky blue */
+            color: #212121; /* Warna teks gelap */
+        }
 
-# Panggil fungsi CSS kustom untuk menerapkan tema
-inject_custom_css()
+        /* Sidebar */
+        [data-testid="stSidebar"] {
+            background-color: #007BFF; /* Warna sidebar: biru terang */
+            color: white; /* Warna teks putih */
+            border-right: 2px solid #0056b3;
+            box-shadow: 2px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+        [data-testid="stSidebar"] .stButton > button {
+            background-color: white;
+            color: #007BFF;
+            border-radius: 8px;
+            border: 1px solid #007BFF;
+            padding: 10px 20px;
+            font-weight: bold;
+            transition: all 0.2s ease-in-out;
+        }
+        [data-testid="stSidebar"] .stButton > button:hover {
+            background-color: #e9ecef;
+            transform: translateY(-2px);
+        }
+        .stRadio > div {
+            background-color: #007BFF;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 5px;
+        }
+        .stRadio > div label {
+            color: white;
+        }
+        .stRadio > div [aria-checked="true"] div:first-child {
+            border-color: white !important;
+        }
+        .stRadio > div [aria-checked="true"] div:first-child::after {
+            background-color: white !important;
+        }
+        
+        /* Judul dan Teks */
+        h1, h2, h3, h4, h5, h6 {
+            color: #0056b3; /* Warna aksen: biru lebih gelap untuk judul */
+            font-family: 'Segoe UI', sans-serif;
+        }
+        p {
+            font-family: 'Roboto', sans-serif;
+            color: #212121;
+        }
+
+        /* Kotak Konten Umum */
+        .st-emotion-cache-1r4qj8m, .st-emotion-cache-1r4qj8m > div > div {
+            background-color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            border: 1px solid #dddddd;
+            transition: all 0.3s ease-in-out;
+            margin-bottom: 20px;
+        }
+        .st-emotion-cache-1r4qj8m:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Input Fields dan Select Boxes */
+        .stTextInput > div > div > input, .stSelectbox > div > div > div > div > input, .stNumberInput > div > div > input {
+            background-color: #f8f9fa;
+            color: #212121;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+        .stTextInput > div > div > input:focus, .stSelectbox > div > div > div > div > input:focus {
+            border-color: #007BFF;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        .stSelectbox div[role="listbox"] {
+            background-color: #f8f9fa;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+        }
+        .stSelectbox div[role="option"] {
+            color: #212121;
+        }
+        .stSelectbox div[role="option"]:hover {
+            background-color: #e9ecef;
+        }
+
+        /* Tombol di Konten Utama */
+        .stButton > button {
+            background-color: #007BFF;
+            color: white;
+            border-radius: 8px;
+            border: none;
+            padding: 10px 20px;
+            font-weight: bold;
+            transition: all 0.2s ease-in-out;
+        }
+        .stButton > button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        /* Tombol sekunder (untuk Hapus) */
+        .stButton[data-testid="stFormSubmitButton"] > button[type="submit"] {
+            background-color: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
+        .stButton[data-testid="stFormSubmitButton"] > button[type="submit"]:hover {
+            background-color: #c82333;
+        }
+
+        /* DataFrame Styling */
+        .stDataFrame {
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #ced4da;
+        }
+        .dataframe {
+            background-color: white;
+            color: #212121;
+        }
+        .dataframe th {
+            background-color: #e9ecef;
+            color: #212121;
+            font-weight: bold;
+        }
+        .dataframe tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .dataframe tr:nth-child(odd) {
+            background-color: white;
+        }
+
+        /* Pesan Info/Sukses/Peringatan */
+        .stAlert {
+            border-radius: 8px;
+            padding: 10px 15px;
+        }
+        .stAlert.st-success { background-color: #d4edda; color: #155724; border-left: 5px solid #28a745; }
+        .stAlert.st-info { background-color: #d1ecf1; color: #0c5460; border-left: 5px solid #17a2b8; }
+        .stAlert.st-warning { background-color: #fff3cd; color: #856404; border-left: 5px solid #ffc107; }
+        .stAlert.st-error { background-color: #f8d7da; color: #721c24; border-left: 5px solid #dc3545; }
+        
+        /* Matplotlib figure background for light theme */
+        .stPlotlyChart {
+            background-color: white;
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        /* WordCloud figure background */
+        .wordcloud-container { 
+            background-color: white;
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+        
+        /* Warna spesifik untuk kartu sentimen */
+        .positive-sentiment { background-color: #28a745; }
+        .neutral-sentiment { background-color: #6c757d; }
+        .negative-sentiment { background-color: #dc3545; }
+        </style>
+        """
+    st.markdown(css, unsafe_allow_html=True)
+
+# Panggil fungsi CSS kustom dengan tema saat ini
+inject_custom_css(st.session_state.theme)
 
 # Fungsi untuk memuat klien YouTube API
 def load_youtube_client(api_key: str):
@@ -333,7 +511,6 @@ VIDEO_LINKS = [
 ]
 
 # =========== Mengambil YouTube API Key (tanpa user/passw) =============
-# Mengambil API key langsung dari Streamlit secrets atau environment variables
 api_key = None
 if 'YOUTUBE_API_KEY' in st.secrets:
     api_key = st.secrets['YOUTUBE_API_KEY']
@@ -346,17 +523,22 @@ else:
 # Tampilkan logo VoxMeter di paling atas, di tengah dasbor
 col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
 with col_logo2:
-    st.image(LOGO_FILE, width=180) # Sesuaikan width jika perlu
-    st.markdown("---") # Garis pemisah setelah logo
+    st.image(LOGO_FILE, width=180) 
+    st.markdown("---") 
 
 # Sidebar
 st.sidebar.image(ADMIN_PIC, width=80)
 st.sidebar.markdown("**Administrator**")
 menu = st.sidebar.radio("MENU", ["Sentiment", "Logout"]) 
 
+# Logika untuk tombol ganti mode
+mode_button_text = "Ganti ke Tema Terang" if st.session_state.theme == 'dark' else "Ganti ke Tema Gelap"
+if st.sidebar.button(mode_button_text, use_container_width=True):
+    st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
+    st.experimental_rerun() # Rerun aplikasi untuk menerapkan tema baru
+
 if menu == 'Logout':
     if st.button('Logout sekarang'):
-        # Logika logout (hanya untuk membersihkan session_state jika ada data)
         if 'df_comments' in st.session_state:
             del st.session_state['df_comments']
         st.experimental_rerun()
@@ -370,7 +552,6 @@ if menu == 'Sentiment':
     if submenu == 'Dashboard':
         st.title('Dashboard Sentiment')
         
-        # Menggunakan kontainer untuk Filter
         with st.container(border=True):
             st.markdown("### ⚙️ Filter Data", unsafe_allow_html=True)
             colf1, colf2, colf3 = st.columns([1,1,1])
@@ -379,7 +560,7 @@ if menu == 'Sentiment':
             with colf2:
                 selected_month = st.selectbox('Bulan', options=['All']+[str(i) for i in range(1,13)], disabled=date_filter)
             with colf3:
-                selected_year = st.selectbox('Tahun', options=['All']+list(map(str, range(2020, datetime.now().year+1))), disabled=date_filter)
+                selected_year = st.selectbox('Tahun', options=['All']+list(map(str, range(2020, datetime.now().year+1)), disabled=date_filter)
 
         df = st.session_state['df_comments']
         if not df.empty and 'label' in df.columns:
@@ -403,30 +584,32 @@ if menu == 'Sentiment':
             with c3:
                 st.markdown(f"<div class='negative-sentiment' style='padding:20px;border-radius:12px;color:white;text-align:center'><h3>\U0001F61E<br>Sentimen Negatif</h3><h2>{neg_count}</h2></div>", unsafe_allow_html=True)
             
-            # Statistik per hari
             st.markdown('### 📈 Tren Komentar Harian', unsafe_allow_html=True)
             stat_df = filtered.copy()
             stat_df['date'] = stat_df['published_at'].dt.date
             by_date = stat_df.groupby('date').size().reset_index(name='count')
-            fig, ax = plt.subplots(facecolor='#212121', figsize=(10, 5)) 
-            ax.set_facecolor('#212121') 
-            ax.plot(by_date['date'], by_date['count'], marker='o', color='#FFB74D', linewidth=2) 
-            ax.set_xlabel('Tanggal', color='#e0e0e0')
-            ax.set_ylabel('Jumlah Komentar', color='#e0e0e0')
-            ax.tick_params(axis='x', colors='#e0e0e0', rotation=45)
-            ax.tick_params(axis='y', colors='#e0e0e0')
-            ax.spines['bottom'].set_color('#424242') 
-            ax.spines['left'].set_color('#424242')
+            
+            # Matplotlib plot disesuaikan dengan tema
+            fig, ax = plt.subplots(facecolor='#424242' if st.session_state.theme == 'dark' else 'white', figsize=(10, 5))
+            ax.set_facecolor('#424242' if st.session_state.theme == 'dark' else 'white')
+            ax.plot(by_date['date'], by_date['count'], marker='o', color='#FFB74D' if st.session_state.theme == 'dark' else '#007BFF', linewidth=2) 
+            text_color = '#e0e0e0' if st.session_state.theme == 'dark' else '#212121'
+            ax.set_xlabel('Tanggal', color=text_color)
+            ax.set_ylabel('Jumlah Komentar', color=text_color)
+            ax.tick_params(axis='x', colors=text_color, rotation=45)
+            ax.tick_params(axis='y', colors=text_color)
+            ax.spines['bottom'].set_color(text_color)
+            ax.spines['left'].set_color(text_color)
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             st.pyplot(fig)
 
-            # Pie chart
             st.markdown('### 🥧 Distribusi Sentimen', unsafe_allow_html=True)
             pie_df = pd.Series([pos_count, neu_count, neg_count], index=['Positif','Netral','Negatif'])
             colors = ['#28a745', '#6c757d', '#dc3545'] 
-            fig2, ax2 = plt.subplots(facecolor='#212121', figsize=(6, 6)) 
-            pie_df.plot.pie(y='count', autopct='%1.1f%%', ax=ax2, colors=colors, textprops={'color': 'white'}) 
+            fig2, ax2 = plt.subplots(facecolor='#424242' if st.session_state.theme == 'dark' else 'white', figsize=(6, 6)) 
+            text_color_pie = 'white' if st.session_state.theme == 'dark' else 'black'
+            pie_df.plot.pie(y='count', autopct='%1.1f%%', ax=ax2, colors=colors, textprops={'color': text_color_pie}) 
             ax2.set_ylabel('')
             st.pyplot(fig2)
         else:
@@ -435,7 +618,6 @@ if menu == 'Sentiment':
     if submenu == 'Kelola Data':
         st.title('Halaman Kelola Sentimen')
         
-        # Kontainer pertama: Ambil & Export Data
         with st.container(border=True):
             st.markdown("### 📥 Ambil & Export Data", unsafe_allow_html=True)
             colu1, colu2, colu3 = st.columns([1,1,1])
@@ -492,7 +674,6 @@ if menu == 'Sentiment':
             except Exception as e:
                 st.warning(f'Export PDF gagal: {e} (pastikan reportlab terinstal)')
 
-        # Kontainer kedua: Cari & Kelola Komentar
         with st.container(border=True):
             st.markdown("### 🔍 Cari & Kelola Komentar", unsafe_allow_html=True)
             
@@ -588,43 +769,27 @@ if submenu == 'Insight & Rekomendasi':
                 """,
                 unsafe_allow_html=True
             )
-            # WordCloud
             if count > 0:
                 wc_text = " ".join(text_series.dropna().astype(str))
-                wc = WordCloud(width=600, height=300, background_color="white", colormap="viridis").generate(wc_text)
-                fig, ax = plt.subplots(figsize=(6,3), facecolor='#212121') 
+                bg_color_wc = "white" if st.session_state.theme == 'dark' else "black"
+                wc = WordCloud(width=600, height=300, background_color=bg_color_wc, colormap="viridis").generate(wc_text)
+                fig, ax = plt.subplots(figsize=(6,3), facecolor='#424242' if st.session_state.theme == 'dark' else 'white') 
                 ax.imshow(wc, interpolation='bilinear')
                 ax.axis("off")
                 st.pyplot(fig)
 
-        # Logika insight & rekomendasi
-        if pos_pct > 40:
-            pos_insight = "Mayoritas komentar positif 🎉. Konten disukai audiens."
-            pos_rekomen = "Tingkatkan interaksi (balas komentar, adakan Q&A). Gunakan pola positif untuk konten berikutnya."
-        else:
-            pos_insight = "Komentar positif ada, tapi belum dominan."
-            pos_rekomen = "Coba perkuat bagian yang audiens sukai, perhatikan topik yang sering muncul."
-
-        if neu_pct > 50:
-            neu_insight = "Mayoritas komentar netral. Audiens cenderung pasif."
-            neu_rekomen = "Ajak penonton lebih aktif dengan pertanyaan/quiz. Dorong mereka memberi feedback."
-        else:
-            neu_insight = "Komentar netral cukup berimbang."
-            neu_rekomen = "Tetap jaga interaksi agar audiens tidak hanya pasif."
-
-        if neg_pct > 20:
-            neg_insight = "Komentar negatif cukup signifikan ⚠️."
-            neg_rekomen = "Evaluasi kualitas video & penyampaian. Perbaiki sesuai kritik audiens."
-        else:
-            neg_insight = "Komentar negatif rendah 👍."
-            neg_rekomen = "Tetap monitor agar tidak meningkat, tanggapi kritik dengan bijak."
-
         make_box_with_wc("Sentimen Positif", pos_count, pos_pct, "#28a745",
-                         pos_insight, pos_rekomen, df[df['label']=="Positif"]['comment'])
+                         "Mayoritas komentar positif 🎉. Konten disukai audiens.",
+                         "Tingkatkan interaksi (balas komentar, adakan Q&A). Gunakan pola positif untuk konten berikutnya.",
+                         df[df['label']=="Positif"]['comment'])
         make_box_with_wc("Sentimen Netral", neu_count, neu_pct, "#6c757d",
-                         neu_insight, neu_rekomen, df[df['label']=="Netral"]['comment'])
+                         "Mayoritas komentar netral. Audiens cenderung pasif.",
+                         "Ajak penonton lebih aktif dengan pertanyaan/quiz. Dorong mereka memberi feedback.",
+                         df[df['label']=="Netral"]['comment'])
         make_box_with_wc("Sentimen Negatif", neg_count, neg_pct, "#dc3545",
-                         neg_insight, neg_rekomen, df[df['label']=="Negatif"]['comment'])
+                         "Komentar negatif cukup signifikan ⚠️.",
+                         "Evaluasi kualitas video & penyampaian. Perbaiki sesuai kritik audiens.",
+                         df[df['label']=="Negatif"]['comment'])
 
 # ================= TOP 5 KATA =================
 if 'df_comments' in st.session_state and not st.session_state['df_comments'].empty:
@@ -635,13 +800,15 @@ if 'df_comments' in st.session_state and not st.session_state['df_comments'].emp
 
     if top5:
         st.markdown(
-            """
-            <div style="background:#212121;padding:20px;border-radius:10px;color:white;margin-top:20px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
+            f"""
+            <div style="background:{'#424242' if st.session_state.theme == 'dark' else 'white'};padding:20px;border-radius:10px;color:{'white' if st.session_state.theme == 'dark' else 'black'};margin-top:20px; box-shadow: 0 5px 15px rgba(0,0,0,{'0.3' if st.session_state.theme == 'dark' else '0.1'});">
             <h3>🔝 5 Kata Paling Sering Muncul (Semua Komentar)</h3>
             </div>
             """,
             unsafe_allow_html=True
         )
-        st.markdown("<br>", unsafe_allow_html=True) # Spasi
+        st.markdown("<br>", unsafe_allow_html=True)
         for w, c in top5:
-            st.markdown(f"<p style='color: #e0e0e0; font-size: 1.1em;'>➡️ <b style='color:#FFB74D;'>{w}</b> : {c} kali</p>", unsafe_allow_html=True)
+            text_color = '#e0e0e0' if st.session_state.theme == 'dark' else '#212121'
+            accent_color = '#FFB74D' if st.session_state.theme == 'dark' else '#007BFF'
+            st.markdown(f"<p style='color: {text_color}; font-size: 1.1em;'>➡️ <b style='color:{accent_color};'>{w}</b> : {c} kali</p>", unsafe_allow_html=True)
