@@ -15,7 +15,7 @@ from wordcloud import WordCloud
 from collections import Counter
 
 # Konfigurasi halaman Streamlit
-st.set_page_config(page_title="VoxMeter Dashboard", layout="wide", initial_sidebar_state="expanded") 
+st.set_page_page_config(page_title="VoxMeter Dashboard", layout="wide", initial_sidebar_state="expanded") 
 
 # Lokasi file gambar
 LOGO_FILE = "logo_voxmeter.png"
@@ -529,220 +529,218 @@ with col_logo2:
 # Sidebar
 st.sidebar.image(ADMIN_PIC, width=80)
 st.sidebar.markdown("**Administrator**")
-menu = st.sidebar.radio("MENU", ["Sentiment", "Logout"]) 
+menu = st.sidebar.radio("MENU", ["Sentiment", "Prediksi", "Dashboard", "Kelola Data", "Insight & Rekomendasi", "Logout"]) 
 
 # Logika untuk tombol ganti mode
 mode_button_text = "Ganti ke Tema Terang" if st.session_state.theme == 'dark' else "Ganti ke Tema Gelap"
 if st.sidebar.button(mode_button_text, use_container_width=True):
     st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
-    st.experimental_rerun() # Rerun aplikasi untuk menerapkan tema baru
+    st.rerun() # Rerun aplikasi untuk menerapkan tema baru
 
-if menu == 'Logout':
-    if st.button('Logout sekarang'):
-        if 'df_comments' in st.session_state:
-            del st.session_state['df_comments']
-        st.experimental_rerun()
+# Menambahkan kembali semua menu yang hilang
+if menu == "Sentiment":
+    st.title('Analisis Sentimen')
+    st.write('Halaman ini untuk menganalisis sentimen dari data yang sudah ada.')
+    st.warning('Fungsionalitas ini akan diterapkan pada menu "Dashboard" dan "Kelola Data".')
 
-if menu == 'Sentiment':
-    submenu = st.sidebar.selectbox('Menu Sentiment', ['Dashboard', 'Kelola Data', 'Insight & Rekomendasi'])
+if menu == "Prediksi":
+    st.title('Halaman Prediksi')
+    st.write('Halaman ini akan digunakan untuk memprediksi tren sentimen atau data lainnya.')
+    st.info('Fungsionalitas prediksi akan ditambahkan di sini.')
 
-    if 'df_comments' not in st.session_state:
-        st.session_state['df_comments'] = pd.DataFrame(columns=['comment','author','published_at'])
+if menu == 'Dashboard':
+    st.title('Dashboard Sentimen')
+    
+    with st.container(border=True):
+        st.markdown("### ⚙️ Filter Data", unsafe_allow_html=True)
+        colf1, colf2, colf3 = st.columns([1,1,1])
+        with colf1:
+            date_filter = st.checkbox('Tampilkan tanpa filter', value=True)
+        with colf2:
+            selected_month = st.selectbox('Bulan', options=['All']+[str(i) for i in range(1,13)], disabled=date_filter)
+        with colf3:
+            # Perbaikan: Menambahkan tanda kurung penutup yang hilang
+            selected_year = st.selectbox('Tahun', options=['All']+list(map(str, range(2020, datetime.now().year+1))), disabled=date_filter)
 
-    if submenu == 'Dashboard':
-        st.title('Dashboard Sentiment')
+    df = st.session_state['df_comments']
+    if not df.empty and 'label' in df.columns:
+        filtered = df.copy()
+        if not date_filter:
+            if selected_month != 'All':
+                filtered = filtered[filtered['published_at'].dt.month==int(selected_month)]
+            if selected_year != 'All':
+                filtered = filtered[filtered['published_at'].dt.year==int(selected_year)]
+
+        pos_count = (filtered['label']=='Positif').sum()
+        neu_count = (filtered['label']=='Netral').sum()
+        neg_count = (filtered['label']=='Negatif').sum()
+
+        st.markdown("### 📊 Ringkasan Sentimen", unsafe_allow_html=True) 
+        c1, c2, c3 = st.columns([1,1,1])
+        with c1:
+            st.markdown(f"<div class='positive-sentiment' style='padding:20px;border-radius:12px;color:white;text-align:center'><h3>\U0001F600<br>Sentimen Positif</h3><h2>{pos_count}</h2></div>", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"<div class='neutral-sentiment' style='padding:20px;border-radius:12px;color:white;text-align:center'><h3>\U0001F610<br>Sentimen Netral</h3><h2>{neu_count}</h2></div>", unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"<div class='negative-sentiment' style='padding:20px;border-radius:12px;color:white;text-align:center'><h3>\U0001F61E<br>Sentimen Negatif</h3><h2>{neg_count}</h2></div>", unsafe_allow_html=True)
         
-        with st.container(border=True):
-            st.markdown("### ⚙️ Filter Data", unsafe_allow_html=True)
-            colf1, colf2, colf3 = st.columns([1,1,1])
-            with colf1:
-                date_filter = st.checkbox('Tampilkan tanpa filter', value=True)
-            with colf2:
-                selected_month = st.selectbox('Bulan', options=['All']+[str(i) for i in range(1,13)], disabled=date_filter)
-            with colf3:
-                # Perbaikan: Menambahkan tanda kurung penutup yang hilang
-                selected_year = st.selectbox('Tahun', options=['All']+list(map(str, range(2020, datetime.now().year+1))), disabled=date_filter)
+        st.markdown('### 📈 Tren Komentar Harian', unsafe_allow_html=True)
+        stat_df = filtered.copy()
+        stat_df['date'] = stat_df['published_at'].dt.date
+        by_date = stat_df.groupby('date').size().reset_index(name='count')
+        
+        # Matplotlib plot disesuaikan dengan tema
+        fig, ax = plt.subplots(facecolor='#424242' if st.session_state.theme == 'dark' else 'white', figsize=(10, 5))
+        ax.set_facecolor('#424242' if st.session_state.theme == 'dark' else 'white')
+        ax.plot(by_date['date'], by_date['count'], marker='o', color='#FFB74D' if st.session_state.theme == 'dark' else '#007BFF', linewidth=2) 
+        text_color = '#e0e0e0' if st.session_state.theme == 'dark' else '#212121'
+        ax.set_xlabel('Tanggal', color=text_color)
+        ax.set_ylabel('Jumlah Komentar', color=text_color)
+        ax.tick_params(axis='x', colors=text_color, rotation=45)
+        ax.tick_params(axis='y', colors=text_color)
+        ax.spines['bottom'].set_color(text_color)
+        ax.spines['left'].set_color(text_color)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        st.pyplot(fig)
+
+        st.markdown('### 🥧 Distribusi Sentimen', unsafe_allow_html=True)
+        pie_df = pd.Series([pos_count, neu_count, neg_count], index=['Positif','Netral','Negatif'])
+        colors = ['#28a745', '#6c757d', '#dc3545'] 
+        fig2, ax2 = plt.subplots(facecolor='#424242' if st.session_state.theme == 'dark' else 'white', figsize=(6, 6)) 
+        text_color_pie = 'white' if st.session_state.theme == 'dark' else 'black'
+        pie_df.plot.pie(y='count', autopct='%1.1f%%', ax=ax2, colors=colors, textprops={'color': text_color_pie}) 
+        ax2.set_ylabel('')
+        st.pyplot(fig2)
+    else:
+        st.info('Belum ada data komentar. Silakan ambil data melalui menu Kelola Data.')
+
+if menu == 'Kelola Data':
+    st.title('Halaman Kelola Sentimen')
+    
+    with st.container(border=True):
+        st.markdown("### 📥 Ambil & Export Data", unsafe_allow_html=True)
+        colu1, colu2, colu3 = st.columns([1,1,1])
+        with colu1:
+            if st.button('Ambil data lagi dari daftar video', use_container_width=True): 
+                if not api_key:
+                    st.error('API Key YouTube belum diset di Streamlit secrets atau .env')
+                else:
+                    try:
+                        youtube = load_youtube_client(api_key)
+                        all_comments = []
+                        st.info("Memulai pengambilan data. Proses ini mungkin butuh waktu.")
+                        for link in VIDEO_LINKS:
+                            vid = extract_video_id(link)
+                            with st.spinner(f'Mengambil komentar video {vid} ...'):
+                                c = fetch_comments_for_video(youtube, vid)
+                                all_comments.extend(c)
+                        
+                        if all_comments:
+                            df_new = pd.DataFrame(all_comments)
+                            df_new['published_at'] = pd.to_datetime(df_new['published_at'])
+                            df_new = analyze_sentiments(df_new)
+
+                            st.session_state['df_comments'] = df_new
+                            st.success(f'Berhasil mengambil {len(df_new)} komentar.')
+                            st.rerun()
+                        else:
+                            st.warning("Tidak ada komentar yang berhasil diambil. Periksa link video atau kuota API.")
+                    except Exception as e:
+                        st.error(f"Terjadi kesalahan saat mengambil atau menganalisis data: {e}")
+        
+        with colu2:
+            st.download_button(
+                'Export CSV',
+                data=df_to_csv_bytes(st.session_state['df_comments']),
+                file_name='sentimen.csv',
+                use_container_width=True
+            )
+        with colu3:
+            st.download_button(
+                'Export Excel',
+                data=df_to_excel_bytes(st.session_state['df_comments']),
+                file_name='sentimen.xlsx',
+                use_container_width=True
+            )
+        st.markdown("") 
+        try:
+            st.download_button(
+                'Export PDF',
+                data=df_to_pdf_bytes(st.session_state['df_comments']),
+                file_name='sentimen.pdf',
+                use_container_width=True
+            )
+        except Exception as e:
+            st.warning(f'Export PDF gagal: {e} (pastikan reportlab terinstal)')
+
+    with st.container(border=True):
+        st.markdown("### 🔍 Cari & Kelola Komentar", unsafe_allow_html=True)
+        
+        if "search_query" not in st.session_state:
+            st.session_state["search_query"] = ""
 
         df = st.session_state['df_comments']
-        if not df.empty and 'label' in df.columns:
-            filtered = df.copy()
-            if not date_filter:
-                if selected_month != 'All':
-                    filtered = filtered[filtered['published_at'].dt.month==int(selected_month)]
-                if selected_year != 'All':
-                    filtered = filtered[filtered['published_at'].dt.year==int(selected_year)]
+        if not df.empty:
+            col_search, col_refresh = st.columns([3,1])
+            with col_search:
+                q = st.text_input("Cari komentar (kata kunci)", value=st.session_state["search_query"], key="comment_search_input")
+            with col_refresh:
+                st.markdown("##") 
+                if st.button("Refresh Pencarian", use_container_width=True):
+                    st.session_state["search_query"] = "" 
+                    st.rerun() 
 
-            pos_count = (filtered['label']=='Positif').sum()
-            neu_count = (filtered['label']=='Netral').sum()
-            neg_count = (filtered['label']=='Negatif').sum()
+            st.session_state["search_query"] = q 
 
-            st.markdown("### 📊 Ringkasan Sentimen", unsafe_allow_html=True) 
-            c1, c2, c3 = st.columns([1,1,1])
-            with c1:
-                st.markdown(f"<div class='positive-sentiment' style='padding:20px;border-radius:12px;color:white;text-align:center'><h3>\U0001F600<br>Sentimen Positif</h3><h2>{pos_count}</h2></div>", unsafe_allow_html=True)
-            with c2:
-                st.markdown(f"<div class='neutral-sentiment' style='padding:20px;border-radius:12px;color:white;text-align:center'><h3>\U0001F610<br>Sentimen Netral</h3><h2>{neu_count}</h2></div>", unsafe_allow_html=True)
-            with c3:
-                st.markdown(f"<div class='negative-sentiment' style='padding:20px;border-radius:12px;color:white;text-align:center'><h3>\U0001F61E<br>Sentimen Negatif</h3><h2>{neg_count}</h2></div>", unsafe_allow_html=True)
-            
-            st.markdown('### 📈 Tren Komentar Harian', unsafe_allow_html=True)
-            stat_df = filtered.copy()
-            stat_df['date'] = stat_df['published_at'].dt.date
-            by_date = stat_df.groupby('date').size().reset_index(name='count')
-            
-            # Matplotlib plot disesuaikan dengan tema
-            fig, ax = plt.subplots(facecolor='#424242' if st.session_state.theme == 'dark' else 'white', figsize=(10, 5))
-            ax.set_facecolor('#424242' if st.session_state.theme == 'dark' else 'white')
-            ax.plot(by_date['date'], by_date['count'], marker='o', color='#FFB74D' if st.session_state.theme == 'dark' else '#007BFF', linewidth=2) 
-            text_color = '#e0e0e0' if st.session_state.theme == 'dark' else '#212121'
-            ax.set_xlabel('Tanggal', color=text_color)
-            ax.set_ylabel('Jumlah Komentar', color=text_color)
-            ax.tick_params(axis='x', colors=text_color, rotation=45)
-            ax.tick_params(axis='y', colors=text_color)
-            ax.spines['bottom'].set_color(text_color)
-            ax.spines['left'].set_color(text_color)
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            st.pyplot(fig)
-
-            st.markdown('### 🥧 Distribusi Sentimen', unsafe_allow_html=True)
-            pie_df = pd.Series([pos_count, neu_count, neg_count], index=['Positif','Netral','Negatif'])
-            colors = ['#28a745', '#6c757d', '#dc3545'] 
-            fig2, ax2 = plt.subplots(facecolor='#424242' if st.session_state.theme == 'dark' else 'white', figsize=(6, 6)) 
-            text_color_pie = 'white' if st.session_state.theme == 'dark' else 'black'
-            pie_df.plot.pie(y='count', autopct='%1.1f%%', ax=ax2, colors=colors, textprops={'color': text_color_pie}) 
-            ax2.set_ylabel('')
-            st.pyplot(fig2)
-        else:
-            st.info('Belum ada data komentar. Silakan ambil data melalui menu Kelola Data.')
-
-    if submenu == 'Kelola Data':
-        st.title('Halaman Kelola Sentimen')
-        
-        with st.container(border=True):
-            st.markdown("### 📥 Ambil & Export Data", unsafe_allow_html=True)
-            colu1, colu2, colu3 = st.columns([1,1,1])
-            with colu1:
-                if st.button('Ambil data lagi dari daftar video', use_container_width=True): 
-                    if not api_key:
-                        st.error('API Key YouTube belum diset di Streamlit secrets atau .env')
-                    else:
-                        try:
-                            youtube = load_youtube_client(api_key)
-                            all_comments = []
-                            st.info("Memulai pengambilan data. Proses ini mungkin butuh waktu.")
-                            for link in VIDEO_LINKS:
-                                vid = extract_video_id(link)
-                                with st.spinner(f'Mengambil komentar video {vid} ...'):
-                                    c = fetch_comments_for_video(youtube, vid)
-                                    all_comments.extend(c)
-                            
-                            if all_comments:
-                                df_new = pd.DataFrame(all_comments)
-                                df_new['published_at'] = pd.to_datetime(df_new['published_at'])
-                                df_new = analyze_sentiments(df_new)
-
-                                st.session_state['df_comments'] = df_new
-                                st.success(f'Berhasil mengambil {len(df_new)} komentar.')
-                                st.experimental_rerun()
-                            else:
-                                st.warning("Tidak ada komentar yang berhasil diambil. Periksa link video atau kuota API.")
-                        except Exception as e:
-                            st.error(f"Terjadi kesalahan saat mengambil atau menganalisis data: {e}")
-            
-            with colu2:
-                st.download_button(
-                    'Export CSV',
-                    data=df_to_csv_bytes(st.session_state['df_comments']),
-                    file_name='sentimen.csv',
-                    use_container_width=True
-                )
-            with colu3:
-                st.download_button(
-                    'Export Excel',
-                    data=df_to_excel_bytes(st.session_state['df_comments']),
-                    file_name='sentimen.xlsx',
-                    use_container_width=True
-                )
-            st.markdown("") 
-            try:
-                st.download_button(
-                    'Export PDF',
-                    data=df_to_pdf_bytes(st.session_state['df_comments']),
-                    file_name='sentimen.pdf',
-                    use_container_width=True
-                )
-            except Exception as e:
-                st.warning(f'Export PDF gagal: {e} (pastikan reportlab terinstal)')
-
-        with st.container(border=True):
-            st.markdown("### 🔍 Cari & Kelola Komentar", unsafe_allow_html=True)
-            
-            if "search_query" not in st.session_state:
-                st.session_state["search_query"] = ""
-
-            df = st.session_state['df_comments']
-            if not df.empty:
-                col_search, col_refresh = st.columns([3,1])
-                with col_search:
-                    q = st.text_input("Cari komentar (kata kunci)", value=st.session_state["search_query"], key="comment_search_input")
-                with col_refresh:
-                    st.markdown("##") 
-                    if st.button("Refresh Pencarian", use_container_width=True):
-                        st.session_state["search_query"] = "" 
-                        st.experimental_rerun() 
-
-                st.session_state["search_query"] = q 
-
-                if q:
-                    df_display = df[df['comment'].str.contains(q, case=False, na=False)]
-                else:
-                    df_display = df
-
-                df_display = df_display[['author','comment','label','published_at']] \
-                    .sort_values(by='published_at', ascending=False) \
-                    .reset_index(drop=True)
-
-                df_display.index = df_display.index + 1
-                df_display = df_display.rename_axis("No").reset_index()
-
-                st.dataframe(df_display, use_container_width=True) 
-
-                st.markdown("---") 
-                st.markdown("### 🗑️ Hapus Komentar", unsafe_allow_html=True)
-                
-                min_val_delete = 1 if len(df_display) > 0 else 0
-                max_val_delete = len(df_display) if len(df_display) > 0 else 0
-                index_to_delete = st.number_input('Nomor baris untuk dihapus (index)', min_value=min_val_delete, max_value=max_val_delete, value=min_val_delete)
-                
-                if st.button('Hapus baris yang dipilih', type="secondary"): 
-                    try:
-                        if index_to_delete > 0: 
-                            original_df_index_row = df_display[df_display['No'] == index_to_delete]
-                            if not original_df_index_row.empty:
-                                idx_in_df_display = original_df_index_row.index[0]
-                                comment_to_delete = df_display.loc[idx_in_df_display, 'comment']
-                                
-                                indices_in_original_df = df[df['comment'] == comment_to_delete].index
-                                
-                                if not indices_in_original_df.empty:
-                                    df = df.drop(indices_in_original_df)
-                                    st.session_state['df_comments'] = df.reset_index(drop=True)
-                                    st.success(f'Baris dengan komentar "{comment_to_delete}" dihapus.')
-                                    st.experimental_rerun() 
-                                else:
-                                    st.error("Komentar tidak ditemukan di data asli.")
-                            else:
-                                st.error("Nomor baris tidak valid dalam tampilan data.")
-                        else:
-                            st.warning("Pilih nomor baris yang valid untuk dihapus.")
-                    except Exception as e:
-                        st.error('Gagal menghapus: ' + str(e))
+            if q:
+                df_display = df[df['comment'].str.contains(q, case=False, na=False)]
             else:
-                st.info('Belum ada data. Silakan ambil data menggunakan tombol "Ambil data lagi dari daftar video" di atas.')
+                df_display = df
 
-# =========== insight & rekomendasi =============
-if submenu == 'Insight & Rekomendasi':
+            df_display = df_display[['author','comment','label','published_at']] \
+                .sort_values(by='published_at', ascending=False) \
+                .reset_index(drop=True)
+
+            df_display.index = df_display.index + 1
+            df_display = df_display.rename_axis("No").reset_index()
+
+            st.dataframe(df_display, use_container_width=True) 
+
+            st.markdown("---") 
+            st.markdown("### 🗑️ Hapus Komentar", unsafe_allow_html=True)
+            
+            min_val_delete = 1 if len(df_display) > 0 else 0
+            max_val_delete = len(df_display) if len(df_display) > 0 else 0
+            index_to_delete = st.number_input('Nomor baris untuk dihapus (index)', min_value=min_val_delete, max_value=max_val_delete, value=min_val_delete)
+            
+            if st.button('Hapus baris yang dipilih', type="secondary"): 
+                try:
+                    if index_to_delete > 0: 
+                        original_df_index_row = df_display[df_display['No'] == index_to_delete]
+                        if not original_df_index_row.empty:
+                            idx_in_df_display = original_df_index_row.index[0]
+                            comment_to_delete = df_display.loc[idx_in_df_display, 'comment']
+                            
+                            indices_in_original_df = df[df['comment'] == comment_to_delete].index
+                            
+                            if not indices_in_original_df.empty:
+                                df = df.drop(indices_in_original_df)
+                                st.session_state['df_comments'] = df.reset_index(drop=True)
+                                st.success(f'Baris dengan komentar "{comment_to_delete}" dihapus.')
+                                st.rerun() 
+                            else:
+                                st.error("Komentar tidak ditemukan di data asli.")
+                        else:
+                            st.error("Nomor baris tidak valid dalam tampilan data.")
+                    else:
+                        st.warning("Pilih nomor baris yang valid untuk dihapus.")
+                except Exception as e:
+                    st.error('Gagal menghapus: ' + str(e))
+        else:
+            st.info('Belum ada data. Silakan ambil data menggunakan tombol "Ambil data lagi dari daftar video" di atas.')
+
+if menu == 'Insight & Rekomendasi':
     st.title('Insight & Rekomendasi')
 
     df = st.session_state['df_comments']
@@ -813,3 +811,9 @@ if 'df_comments' in st.session_state and not st.session_state['df_comments'].emp
             text_color = '#e0e0e0' if st.session_state.theme == 'dark' else '#212121'
             accent_color = '#FFB74D' if st.session_state.theme == 'dark' else '#007BFF'
             st.markdown(f"<p style='color: {text_color}; font-size: 1.1em;'>➡️ <b style='color:{accent_color};'>{w}</b> : {c} kali</p>", unsafe_allow_html=True)
+
+if menu == 'Logout':
+    if st.button('Logout sekarang'):
+        if 'df_comments' in st.session_state:
+            del st.session_state['df_comments']
+        st.rerun()
