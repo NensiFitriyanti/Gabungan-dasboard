@@ -136,7 +136,7 @@ def check_credentials(user, pwd):
     # Prioritaskan membaca dari st.secrets
     if 'APP_USER' in st.secrets:
         expected_user = st.secrets['APP_USER']
-    # Jika tidak ada di st.secrets, coba dari environment variables
+    # Jika tidak ada di st.secrets, coba dari environment variables (fallback)
     else:
         expected_user = os.getenv('APP_USER')
 
@@ -145,9 +145,9 @@ def check_credentials(user, pwd):
     else:
         expected_pass = os.getenv('APP_PASS')
     
-    # Periksa apakah kredensial ditemukan
+    # Periksa apakah kredensial berhasil ditemukan
     if expected_user is None or expected_pass is None:
-        st.error("Kredensial login (APP_USER dan APP_PASS) tidak ditemukan di Streamlit secrets atau environment variables.")
+        st.error("Error: Kredensial login (APP_USER atau APP_PASS) tidak dapat dimuat dari Streamlit secrets atau environment variables. Mohon pastikan file .streamlit/secrets.toml sudah benar.")
         return False
 
     return (user == expected_user) and (pwd == expected_pass)
@@ -173,7 +173,7 @@ if not st.session_state['authenticated']:
                     st.experimental_rerun()
                 else:
                     # Pesan error spesifik jika kredensial salah
-                    st.error('Username atau password salah.')
+                    st.error('Username atau password yang Anda masukkan salah. Periksa kembali penulisan.')
     st.stop()
 
 # ========= tampilan dahboard ========
