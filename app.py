@@ -118,7 +118,7 @@ def df_to_pdf_bytes(df: pd.DataFrame) -> bytes:
     buffer.seek(0)
     return buffer.read()
 
-# Daftar link YouTube Fasilkom Unsri yang telah diperbarui
+# Daftar link YouTube Fasilkom Unsri
 VIDEO_LINKS = [
     "https://youtu.be/6wUX2B5n6xg?si=NpRmpZdok_W7H1Bj",
     "https://youtu.be/ROwYZCLNbsc?si=-uyOC8dT2AsempEd",
@@ -133,14 +133,23 @@ VIDEO_LINKS = [
 def check_credentials(user, pwd):
     expected_user = None
     expected_pass = None
+    # Prioritaskan membaca dari st.secrets
     if 'APP_USER' in st.secrets:
         expected_user = st.secrets['APP_USER']
+    # Jika tidak ada di st.secrets, coba dari environment variables
     else:
         expected_user = os.getenv('APP_USER')
+
     if 'APP_PASS' in st.secrets:
         expected_pass = st.secrets['APP_PASS']
     else:
         expected_pass = os.getenv('APP_PASS')
+    
+    # Periksa apakah kredensial ditemukan
+    if expected_user is None or expected_pass is None:
+        st.error("Kredensial login (APP_USER dan APP_PASS) tidak ditemukan di Streamlit secrets atau environment variables.")
+        return False
+
     return (user == expected_user) and (pwd == expected_pass)
 
 
@@ -163,7 +172,8 @@ if not st.session_state['authenticated']:
                     st.session_state['authenticated'] = True
                     st.experimental_rerun()
                 else:
-                    st.error('Username atau password salah')
+                    # Pesan error spesifik jika kredensial salah
+                    st.error('Username atau password salah.')
     st.stop()
 
 # ========= tampilan dahboard ========
