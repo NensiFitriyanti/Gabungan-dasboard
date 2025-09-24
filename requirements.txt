@@ -1,9 +1,8 @@
 streamlit
 pandas
 matplotlib
+vaderSentiment
 google-api-python-client
-wordcloud
-transformers
-torch # atau tensorflow jika Anda lebih memilih itu
 reportlab
 xlsxwriter
+wordcloud
